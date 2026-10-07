@@ -16,11 +16,13 @@ app.get('/api/items', (req, res) => {
     typeof req.query.cursor === 'string' && req.query.cursor !== ''
       ? req.query.cursor
       : null;
+  const query = typeof req.query.q === 'string' ? req.query.q : '';
   res.json(
     page({
       side: req.query.side === 'right' ? 'right' : 'left',
       cursor,
       limit: Number.isInteger(limit) ? limit : 20,
+      query,
     }),
   );
 });

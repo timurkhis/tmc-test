@@ -66,13 +66,17 @@ export function move(rawId, rawBeforeId) {
   return {ok: true, id};
 }
 
-function pageLeft(cursor, limit) {
+function matches(id, query) {
+  return query === '' || id.startsWith(query);
+}
+
+function pageLeft(cursor, limit, query) {
   const items = [];
   if (!cursor || inRange(cursor)) {
     let n = cursor ? Number(cursor) + 1 : 1;
     while (n <= RANGE_END && items.length < limit) {
       const id = String(n);
-      if (!state.selectedSet.has(id)) items.push(id);
+      if (!state.selectedSet.has(id) && matches(id, query)) items.push(id);
       n += 1;
     }
   }
@@ -84,7 +88,7 @@ function pageLeft(cursor, limit) {
     }
     for (let i = start; i < state.added.length && items.length < limit; i += 1) {
       const id = state.added[i];
-      if (state.selectedSet.has(id)) continue;
+      if (state.selectedSet.has(id) || !matches(id, query)) continue;
       items.push(id);
     }
   }
@@ -94,20 +98,28 @@ function pageLeft(cursor, limit) {
   };
 }
 
-function pageRight(cursor, limit) {
+function pageRight(cursor, limit, query) {
   let start = 0;
   if (cursor) {
     const index = state.selected.indexOf(cursor);
     start = index === -1 ? state.selected.length : index + 1;
   }
-  const items = state.selected.slice(start, start + limit);
+  const items = [];
+  for (let i = start; i < state.selected.length && items.length < limit; i += 1) {
+    const id = state.selected[i];
+    if (!matches(id, query)) continue;
+    items.push(id);
+  }
   return {
     items,
     nextCursor: items.length === limit ? items[items.length - 1] : null,
   };
 }
 
-export function page({side = 'left', cursor = null, limit = 20} = {}) {
+export function page({side = 'left', cursor = null, limit = 20, query = ''} = {}) {
   const size = Math.min(Math.max(Number(limit) || 20, 1), 20);
-  return side === 'right' ? pageRight(cursor, size) : pageLeft(cursor, size);
+  const normalized = String(query ?? '').trim();
+  return side === 'right'
+    ? pageRight(cursor, size, normalized)
+    : pageLeft(cursor, size, normalized);
 }
