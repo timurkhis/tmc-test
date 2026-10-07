@@ -35,20 +35,28 @@ app.post('/api/items', async (req, res) => {
 
 app.post('/api/selection', async (req, res) => {
   const id = String(req.body?.id ?? '').trim();
-  const result = await operations.enqueue(() => select(id), {invalidate: true});
+  const result = await operations.enqueue(() => select(id), {
+    key: `select:${id}`,
+    invalidate: true,
+  });
   res.json(result);
 });
 
 app.delete('/api/selection/:id', async (req, res) => {
   const id = String(req.params.id ?? '').trim();
-  const result = await operations.enqueue(() => unselect(id), {invalidate: true});
+  const result = await operations.enqueue(() => unselect(id), {
+    key: `unselect:${id}`,
+    invalidate: true,
+  });
   res.json(result);
 });
 
 app.post('/api/selection/move', async (req, res) => {
-  const id = req.body?.id;
-  const beforeId = req.body?.beforeId;
+  const id = String(req.body?.id ?? '').trim();
+  const beforeId =
+    req.body?.beforeId == null ? null : String(req.body.beforeId).trim();
   const result = await operations.enqueue(() => move(id, beforeId), {
+    key: `move:${JSON.stringify([id, beforeId])}`,
     invalidate: true,
   });
   res.json(result);

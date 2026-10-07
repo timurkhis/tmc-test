@@ -6,15 +6,23 @@ export function createBatchQueue(intervalMs) {
   const byKey = new Map();
 
   function enqueue(run, {key = null, invalidate = false} = {}) {
-    if (invalidate) byKey.clear();
     const existing = key == null ? undefined : byKey.get(key);
     if (existing) {
       return new Promise((resolve, reject) => {
         existing.waiters.push({resolve, reject});
       });
     }
+    if (invalidate) {
+      for (const [queuedKey, job] of byKey) {
+        if (job.read) byKey.delete(queuedKey);
+      }
+    }
     return new Promise((resolve, reject) => {
-      const job = {run, waiters: [{resolve, reject}]};
+      const job = {
+        run,
+        waiters: [{resolve, reject}],
+        read: key != null && !invalidate,
+      };
       pending.push(job);
       if (key != null) byKey.set(key, job);
     });
