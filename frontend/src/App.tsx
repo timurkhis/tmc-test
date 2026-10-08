@@ -1,13 +1,13 @@
-import {useState} from 'react';
+import { useState } from 'react';
 import './App.css';
-import {Flex} from '@gravity-ui/uikit';
-import {ItemColumn} from './components/ItemColumn';
-
-const loadedLeft = Array.from({length: 40}, (_, index) => String(index + 1));
+import { Flex } from '@gravity-ui/uikit';
+import { ItemColumn } from './components/ItemColumn';
+import { useDebounced, usePagedItems } from './hooks/usePagedItems';
 
 function insertAt(items: string[], id: string, beforeId: string | null) {
   const from = items.indexOf(id);
-  const next = from === -1 ? items.slice() : items.filter((item) => item !== id);
+  const next =
+    from === -1 ? items.slice() : items.filter((item) => item !== id);
   const index = beforeId == null ? next.length : next.indexOf(beforeId);
   const insertIndex = index === -1 ? next.length : index;
   if (from !== -1 && insertIndex === from) return items;
@@ -15,36 +15,69 @@ function insertAt(items: string[], id: string, beforeId: string | null) {
   return next;
 }
 
+async function postJson(url: string, body: unknown) {
+  await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 export default function App() {
   const [leftQuery, setLeftQuery] = useState('');
   const [rightQuery, setRightQuery] = useState('');
-  const [leftItems, setLeftItems] = useState(loadedLeft);
-  const [rightItems, setRightItems] = useState<string[]>([]);
+  const left = usePagedItems('left', useDebounced(leftQuery, 300));
+  const right = usePagedItems('right', useDebounced(rightQuery, 300));
 
   function placeOnRight(id: string, beforeId: string | null) {
-    setLeftItems((items) => items.filter((item) => item !== id));
-    setRightItems((items) => insertAt(items, id, beforeId));
+    const fromLeft = !right.items.includes(id);
+    const rightFilter = rightQuery.trim();
+    left.setItems((items) => items.filter((item) => item !== id));
+    if (rightFilter === '' || id.startsWith(rightFilter)) {
+      right.setItems((items) => insertAt(items, id, beforeId));
+    }
+    void (async () => {
+      if (fromLeft) await postJson('/api/selection', { id });
+      if (!fromLeft || beforeId !== null) {
+        await postJson('/api/selection/move', { id, beforeId });
+      }
+    })();
   }
 
   function moveToLeft(id: string) {
-    setRightItems((items) => items.filter((item) => item !== id));
-    setLeftItems((items) => (items.includes(id) ? items : [id, ...items]));
+    const leftFilter = leftQuery.trim();
+    right.setItems((items) => items.filter((item) => item !== id));
+    if (leftFilter === '' || id.startsWith(leftFilter)) {
+      left.setItems((items) => (items.includes(id) ? items : [id, ...items]));
+    }
+    void fetch(`/api/selection/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
   }
 
   return (
-    <Flex gap={4} style={{height: '100vh', padding: 16, boxSizing: 'border-box'}}>
+    <Flex
+      gap={4}
+      style={{ height: '100vh', padding: 16, boxSizing: 'border-box' }}
+    >
       <ItemColumn
         title="Все элементы"
         query={leftQuery}
-        items={leftItems}
+        items={left.items}
+        loading={left.loading}
+        error={left.error}
+        onLoadMore={left.loadMore}
         onQueryUpdate={setLeftQuery}
         onItemAction={(id) => placeOnRight(id, null)}
-        onDropItem={(_id) => moveToLeft(_id)}
+        onDropItem={moveToLeft}
       />
       <ItemColumn
         title="Выбранные"
         query={rightQuery}
-        items={rightItems}
+        items={right.items}
+        loading={right.loading}
+        error={right.error}
+        onLoadMore={right.loadMore}
         onQueryUpdate={setRightQuery}
         onItemAction={moveToLeft}
         onDropItem={placeOnRight}
