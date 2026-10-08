@@ -12,7 +12,7 @@ type ItemColumnProps = {
   items: string[];
   onQueryUpdate: (value: string) => void;
   onItemAction: (id: string) => void;
-  onDropItem: (id: string) => void;
+  onDropItem: (id: string, beforeId: string | null) => void;
 };
 
 function allowDrop(event: DragEvent) {
@@ -24,23 +24,48 @@ function readDroppedId(event: DragEvent) {
   return event.dataTransfer.getData('text/plain');
 }
 
-function renderDraggableItem(ctx: ListItemContext<string>, helpers: ListItemHelpers) {
-  return (
-    <List.ItemView
-      {...helpers.getItemProps({
-        ref: (element) => {
-          element?.setAttribute('draggable', 'true');
-        },
-        onDragStart: (event) => {
-          event.dataTransfer.setData('text/plain', ctx.item);
-          event.dataTransfer.effectAllowed = 'move';
-        },
-      })}
-      {...helpers.getItemViewProps()}
-    >
-      {ctx.content}
-    </List.ItemView>
-  );
+function beforeIdFromPointer(event: DragEvent<HTMLElement>, targetId: string, items: string[]) {
+  const rect = event.currentTarget.getBoundingClientRect();
+  const after = event.clientY >= rect.top + rect.height / 2;
+  if (!after) return targetId;
+  const index = items.indexOf(targetId);
+  if (index === -1 || index >= items.length - 1) return null;
+  return items[index + 1];
+}
+
+function renderDraggableItem(
+  items: string[],
+  onDropItem: (id: string, beforeId: string | null) => void,
+) {
+  return function renderItem(ctx: ListItemContext<string>, helpers: ListItemHelpers) {
+    return (
+      <List.ItemView
+        {...helpers.getItemProps({
+          ref: (element) => {
+            element?.setAttribute('draggable', 'true');
+          },
+          onDragStart: (event) => {
+            event.dataTransfer.setData('text/plain', ctx.item);
+            event.dataTransfer.effectAllowed = 'move';
+          },
+          onDragOver: (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          },
+          onDrop: (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            const id = event.dataTransfer.getData('text/plain');
+            if (!id || id === ctx.item) return;
+            onDropItem(id, beforeIdFromPointer(event, ctx.item, items));
+          },
+        })}
+        {...helpers.getItemViewProps()}
+      >
+        {ctx.content}
+      </List.ItemView>
+    );
+  };
 }
 
 export function ItemColumn({
@@ -65,10 +90,10 @@ export function ItemColumn({
             onDragOver: allowDrop,
             onDrop: (event) => {
               const id = readDroppedId(event);
-              if (id) onDropItem(id);
+              if (id) onDropItem(id, null);
             },
           }}
-          renderItem={renderDraggableItem}
+          renderItem={renderDraggableItem(items, onDropItem)}
         />
       </Flex>
     </Card>

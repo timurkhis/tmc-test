@@ -5,15 +5,25 @@ import {ItemColumn} from './components/ItemColumn';
 
 const loadedLeft = Array.from({length: 40}, (_, index) => String(index + 1));
 
+function insertAt(items: string[], id: string, beforeId: string | null) {
+  const from = items.indexOf(id);
+  const next = from === -1 ? items.slice() : items.filter((item) => item !== id);
+  const index = beforeId == null ? next.length : next.indexOf(beforeId);
+  const insertIndex = index === -1 ? next.length : index;
+  if (from !== -1 && insertIndex === from) return items;
+  next.splice(insertIndex, 0, id);
+  return next;
+}
+
 export default function App() {
   const [leftQuery, setLeftQuery] = useState('');
   const [rightQuery, setRightQuery] = useState('');
   const [leftItems, setLeftItems] = useState(loadedLeft);
   const [rightItems, setRightItems] = useState<string[]>([]);
 
-  function moveToRight(id: string) {
+  function placeOnRight(id: string, beforeId: string | null) {
     setLeftItems((items) => items.filter((item) => item !== id));
-    setRightItems((items) => (items.includes(id) ? items : [...items, id]));
+    setRightItems((items) => insertAt(items, id, beforeId));
   }
 
   function moveToLeft(id: string) {
@@ -28,8 +38,8 @@ export default function App() {
         query={leftQuery}
         items={leftItems}
         onQueryUpdate={setLeftQuery}
-        onItemAction={moveToRight}
-        onDropItem={moveToLeft}
+        onItemAction={(id) => placeOnRight(id, null)}
+        onDropItem={(_id) => moveToLeft(_id)}
       />
       <ItemColumn
         title="Выбранные"
@@ -37,7 +47,7 @@ export default function App() {
         items={rightItems}
         onQueryUpdate={setRightQuery}
         onItemAction={moveToLeft}
-        onDropItem={moveToRight}
+        onDropItem={placeOnRight}
       />
     </Flex>
   );
