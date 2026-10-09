@@ -1,4 +1,10 @@
-import { useEffect, useRef, type DragEvent, type UIEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  type DragEvent,
+  type ReactNode,
+  type UIEvent,
+} from 'react';
 import { Card, Flex, Spin, Text, TextInput } from '@gravity-ui/uikit';
 import {
   unstable_List as List,
@@ -8,6 +14,7 @@ import {
 
 type ItemColumnProps = {
   title: string;
+  header?: ReactNode;
   query: string;
   items: string[];
   onQueryUpdate: (value: string) => void;
@@ -80,6 +87,7 @@ function renderDraggableItem(
 
 export function ItemColumn({
   title,
+  header,
   query,
   items,
   loading,
@@ -123,6 +131,7 @@ export function ItemColumn({
     >
       <Flex direction="column" gap={3} height="100%">
         <Text variant="subheader-2">{title}</Text>
+        {header}
         <TextInput
           placeholder="Фильтр по ID"
           value={query}

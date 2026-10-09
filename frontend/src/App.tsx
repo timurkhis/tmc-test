@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import './App.css';
 import { Flex } from '@gravity-ui/uikit';
+import { AddItemForm } from './components/AddItemForm';
 import { ItemColumn } from './components/ItemColumn';
 import { useDebounced, usePagedItems } from './hooks/usePagedItems';
 
@@ -44,6 +45,19 @@ export default function App() {
     })();
   }
 
+  async function addItem(id: string) {
+    const response = await fetch('/api/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    if (!response.ok) throw new Error('Не удалось добавить');
+    const result = (await response.json()) as { ok: boolean };
+    if (!result.ok) return false;
+    setLeftQuery(id);
+    return true;
+  }
+
   function moveToLeft(id: string) {
     const leftFilter = leftQuery.trim();
     right.setItems((items) => items.filter((item) => item !== id));
@@ -62,6 +76,7 @@ export default function App() {
     >
       <ItemColumn
         title="Все элементы"
+        header={<AddItemForm onAdd={addItem} />}
         query={leftQuery}
         items={left.items}
         loading={left.loading}
