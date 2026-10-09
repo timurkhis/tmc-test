@@ -39,6 +39,7 @@ export function useDebounced(value: string, delayMs: number) {
 
 export function usePagedItems(side: Side, query: string) {
   const [items, setItems] = useState<string[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const cursorRef = useRef<string | null>(null);
@@ -50,6 +51,7 @@ export function usePagedItems(side: Side, query: string) {
     cursorRef.current = null;
     loadingRef.current = true;
     setItems([]);
+    setHasMore(false);
     setLoading(true);
     setError(null);
     fetchPage(side, query, null)
@@ -57,6 +59,7 @@ export function usePagedItems(side: Side, query: string) {
         if (request !== generation.current) return;
         setItems(page.items);
         cursorRef.current = page.nextCursor;
+        setHasMore(page.nextCursor != null);
       })
       .catch(() => {
         if (request === generation.current)
@@ -81,6 +84,7 @@ export function usePagedItems(side: Side, query: string) {
         if (request !== generation.current) return;
         setItems((current) => appendPage(current, page.items));
         cursorRef.current = page.nextCursor;
+        setHasMore(page.nextCursor != null);
       })
       .catch(() => {
         if (request === generation.current)
@@ -93,5 +97,5 @@ export function usePagedItems(side: Side, query: string) {
       });
   }, [side, query]);
 
-  return { items, setItems, loading, error, loadMore };
+  return { items, setItems, hasMore, loading, error, loadMore };
 }

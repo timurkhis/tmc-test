@@ -1,20 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './App.css';
 import { Flex } from '@gravity-ui/uikit';
 import { AddItemForm } from './components/AddItemForm';
 import { ItemColumn } from './components/ItemColumn';
 import { useDebounced, usePagedItems } from './hooks/usePagedItems';
-
-function insertAt(items: string[], id: string, beforeId: string | null) {
-  const from = items.indexOf(id);
-  const next =
-    from === -1 ? items.slice() : items.filter((item) => item !== id);
-  const index = beforeId == null ? next.length : next.indexOf(beforeId);
-  const insertIndex = index === -1 ? next.length : index;
-  if (from !== -1 && insertIndex === from) return items;
-  next.splice(insertIndex, 0, id);
-  return next;
-}
+import { insertAt, insertOnLeft, type LeftPlace } from './listOrder';
 
 async function postJson(url: string, body: unknown) {
   await fetch(url, {
@@ -27,13 +17,28 @@ async function postJson(url: string, body: unknown) {
 export default function App() {
   const [leftQuery, setLeftQuery] = useState('');
   const [rightQuery, setRightQuery] = useState('');
-  const left = usePagedItems('left', useDebounced(leftQuery, 300));
+  const leftFilter = useDebounced(leftQuery, 300);
+  const left = usePagedItems('left', leftFilter);
   const right = usePagedItems('right', useDebounced(rightQuery, 300));
+  const leftPlace = useRef(new Map<string, LeftPlace>());
+
+  useEffect(() => {
+    leftPlace.current.clear();
+  }, [leftFilter]);
 
   function placeOnRight(id: string, beforeId: string | null) {
     const fromLeft = !right.items.includes(id);
     const rightFilter = rightQuery.trim();
-    left.setItems((items) => items.filter((item) => item !== id));
+    const index = left.items.indexOf(id);
+    if (index !== -1) {
+      leftPlace.current.set(id, {
+        prev: left.items[index - 1] ?? null,
+        next: left.items[index + 1] ?? null,
+      });
+    }
+    left.setItems((items) =>
+      items.includes(id) ? items.filter((item) => item !== id) : items,
+    );
     if (rightFilter === '' || id.startsWith(rightFilter)) {
       right.setItems((items) => insertAt(items, id, beforeId));
     }
@@ -59,10 +64,10 @@ export default function App() {
   }
 
   function moveToLeft(id: string) {
-    const leftFilter = leftQuery.trim();
+    const place = leftPlace.current.get(id);
     right.setItems((items) => items.filter((item) => item !== id));
     if (leftFilter === '' || id.startsWith(leftFilter)) {
-      left.setItems((items) => (items.includes(id) ? items : [id, ...items]));
+      left.setItems((items) => insertOnLeft(items, id, place, left.hasMore));
     }
     void fetch(`/api/selection/${encodeURIComponent(id)}`, {
       method: 'DELETE',
