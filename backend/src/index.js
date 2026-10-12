@@ -1,4 +1,6 @@
 import express from 'express';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {additions, operations} from './queue.js';
 import {add, move, page, readSelected, select, unselect} from './store.js';
 
@@ -67,6 +69,15 @@ app.get('/api/selection', async (_req, res) => {
     key: 'selection',
   });
   res.json(result);
+});
+
+const dist = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../../frontend/dist',
+);
+app.use(express.static(dist));
+app.get(/^(?!\/api).*/, (_req, res) => {
+  res.sendFile(path.join(dist, 'index.html'));
 });
 
 app.listen(port, () => {
